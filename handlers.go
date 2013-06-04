@@ -1,4 +1,4 @@
-package main
+package stadfangaskra
 
 import (
 	"encoding/json"
