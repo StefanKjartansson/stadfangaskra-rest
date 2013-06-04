@@ -1,50 +1,18 @@
 package main
 
 import (
-    "encoding/csv"
     "encoding/json"
     "flag"
     "fmt"
-    "io"
     "log"
     "net/http"
     "net/url"
-    "os"
     "strconv"
     "strings"
-    iconv "github.com/djimenez/iconv-go"
 )
-
 
 var placename_file = flag.String("file", "Stadfangaskra_20130326.dsv", "csv input file")
 var locations []Location
-
-func ImportDatabase(pfile string) {
-
-    file, err := os.Open(pfile)
-    if err != nil {
-        fmt.Println("Error:", err)
-        return
-    }
-    defer file.Close()
-
-    x,_ := iconv.NewReader(file, "iso-8859-1", "utf-8")
-    reader := csv.NewReader(x)
-    reader.Comma = '|'
-    for {
-        record, err := reader.Read()
-        if err == io.EOF {
-            break
-        } else if err != nil {
-            fmt.Println("Error:", err)
-            return
-        }
-        loc := Location{}
-        loc.ImportFromRecord(record)
-        locations = append(locations, loc)
-    }
-    return
-}
 
 
 func getQueryValue(v url.Values, param string, query *string) error {
