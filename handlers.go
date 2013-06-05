@@ -86,8 +86,7 @@ func GetLocation(w http.ResponseWriter, req *http.Request) {
 	enc := json.NewEncoder(w)
 	hasWritten := false
 
-	for _, element := range locations {
-
+	for _, element := range Locations {
 		if element.ContainsPostcode(postcodes) &&
 			element.ContainsNumbers(numbers) &&
 			element.NameMatches(query) {
