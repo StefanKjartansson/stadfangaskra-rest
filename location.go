@@ -1,8 +1,6 @@
 package main
 
 import (
-	isnet "./isnet"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -36,36 +34,12 @@ type Location struct {
 	Y              float64   `json:"y"`
 }
 
-func (loc Location) ImportFromRecord(record []string) {
-
-	length := len(record)
-
-	loc.Hnitnum, _ = strconv.ParseInt(record[0], intBase, intSize)
-	loc.Svfnr = record[1]
-	loc.Byggd = record[2]
-	loc.Landnr, _ = strconv.ParseInt(record[3], intBase, intSize)
-	loc.Heinum, _ = strconv.ParseInt(record[4], intBase, intSize)
-	loc.Fasteignaheiti = record[5]
-	loc.Matsnr = record[6]
-	loc.Postnr, _ = strconv.ParseInt(record[7], intBase, intSize)
-	loc.Heiti_Nf = record[8]
-	loc.Heiti_Tgf = record[9]
-	loc.Husnr, _ = strconv.ParseInt(record[10], intBase, intSize)
-	loc.Bokst = record[11]
-	loc.Vidsk = record[12]
-	loc.Serheiti = record[13]
-
-	loc.Dags_Inn, _ = time.Parse(shortForm, record[14])
-	loc.Dags_Leidr, _ = time.Parse(shortForm, record[15])
-
-	x, _ := strconv.ParseFloat(record[length-2], floatSize)
-	y, _ := strconv.ParseFloat(record[length-1], floatSize)
-	loc.X, loc.Y = isnet.Isnet93ToWgs84(x, y)
-
-	return
-}
-
 func (loc Location) ContainsPostcode(list []int64) bool {
+
+    if len(list) == 0 {
+        return true
+    }
+
 	for _, b := range list {
 		if b == loc.Postnr {
 			return true
@@ -75,6 +49,11 @@ func (loc Location) ContainsPostcode(list []int64) bool {
 }
 
 func (loc Location) ContainsNumbers(list []int64) bool {
+
+    if len(list) == 0 {
+        return true
+    }
+
 	for _, b := range list {
 		if b == loc.Husnr {
 			return true
