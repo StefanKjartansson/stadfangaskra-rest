@@ -1,6 +1,7 @@
 package main
 
 import (
+	"code.google.com/p/gorilla/mux"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -69,7 +70,8 @@ func ParseQueryParams(v url.Values) (postcodes []int64, numbers []int64, query s
 	return
 }
 
-func GetLocation(w http.ResponseWriter, req *http.Request) {
+func LocationSearchHandler(w http.ResponseWriter, req *http.Request) {
+
 	log.Printf("%s %s %s", req.RemoteAddr, req.Method, req.URL.Query())
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
@@ -86,19 +88,41 @@ func GetLocation(w http.ResponseWriter, req *http.Request) {
 	enc := json.NewEncoder(w)
 	hasWritten := false
 
-	for _, element := range Locations {
-		if element.ContainsPostcode(postcodes) &&
-			element.ContainsNumbers(numbers) &&
-			element.NameMatches(query) {
+	for _, i := range Locations {
+		if i.ContainsPostcode(postcodes) &&
+			i.ContainsNumbers(numbers) &&
+			i.NameMatches(query) {
 			if hasWritten {
 				w.Write([]byte(","))
 			}
-			if err := enc.Encode(&element); err != nil {
+			if err := enc.Encode(&i); err != nil {
 				log.Println(err)
 			}
 			hasWritten = true
 		}
 	}
 	w.Write([]byte("]"))
+	return
+}
+
+func LocationDetailHandler(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	id, err := strconv.ParseInt(vars["id"], 10, 64)
+	if err != nil {
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	for _, i := range Locations {
+		if i.Hnitnum == id {
+			b, err := json.Marshal(i)
+			if err != nil {
+				fmt.Println("error:", err)
+			}
+			w.Write(b)
+			return
+		}
+	}
+	w.Write([]byte("{}"))
 	return
 }
