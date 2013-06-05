@@ -1,21 +1,32 @@
 package main
 
 import (
+	"code.google.com/p/gorilla/mux"
 	"flag"
 	"log"
 	"net/http"
 )
 
-var placename_file = flag.String("file", "Stadfangaskra_20130326.dsv", "csv input file")
-var Locations []Location
+var (
+	httpListen    = flag.String("http", "127.0.0.1:3999", "host:port to listen on")
+	placenameFile = flag.String("file", "Stadfangaskra_20130326.dsv", "csv input file")
+	Locations     []Location
+)
 
 func main() {
 	flag.Parse()
 	log.Println("Starting import")
-	ImportDatabase(*placename_file)
+	ImportDatabase(*placenameFile)
 	log.Println("Data Imported")
 	log.Println("Starting server")
-	http.HandleFunc("/locations/", GetLocation)
-	http.ListenAndServe(":8080", nil)
+
+	r := mux.NewRouter()
+	r.HandleFunc("/locations/",
+		LocationSearchHandler)
+	r.HandleFunc("/locations/{id:[0-9]+}/",
+		LocationDetailHandler)
+	http.Handle("/", r)
+
+	log.Fatal(http.ListenAndServe(*httpListen, nil))
 	log.Println("Bye")
 }
