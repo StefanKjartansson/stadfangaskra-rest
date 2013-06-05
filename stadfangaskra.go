@@ -7,7 +7,7 @@ import (
 )
 
 var placename_file = flag.String("file", "Stadfangaskra_20130326.dsv", "csv input file")
-var locations []Location
+var Locations []Location
 
 func main() {
 	flag.Parse()
@@ -17,4 +17,5 @@ func main() {
 	log.Println("Starting server")
 	http.HandleFunc("/locations/", GetLocation)
 	http.ListenAndServe(":8080", nil)
+	log.Println("Bye")
 }
