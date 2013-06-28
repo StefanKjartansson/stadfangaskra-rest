@@ -7,23 +7,21 @@ import (
 
 const (
 	shortForm = "02.01.2006"
-	intBase   = 0
-	intSize   = 64
 	floatSize = 64
 )
 
 type Location struct {
-	Hnitnum        int     `json:"id"`
+	Hnitnum        int       `json:"id"`
 	Svfnr          string    `json:"-"`
 	Byggd          string    `json:"-"`
-	Landnr         int     `json:"land_nr"`
-	Heinum         int     `json:"-"`
+	Landnr         int       `json:"land_nr"`
+	Heinum         int       `json:"-"`
 	Fasteignaheiti string    `json:"display_name"`
 	Matsnr         string    `json:"-"`
-	Postnr         int     `json:"postcode"`
+	Postnr         int       `json:"postcode"`
 	Heiti_Nf       string    `json:"name_nominative"`
 	Heiti_Tgf      string    `json:"name_genitive"`
-	Husnr          int     `json:"house_number"`
+	Husnr          int       `json:"house_number"`
 	Bokst          string    `json:"house_characters,omitempty"`
 	Vidsk          string    `json:"suffix,omitempty"`
 	Serheiti       string    `json:"special_name,omitempty"`
@@ -34,32 +32,25 @@ type Location struct {
 	Y              float64   `json:"y"`
 }
 
-func (loc Location) ContainsPostcode(list []int) bool {
+func (loc Location) fieldContains(list []int, value int) bool {
 
-    if len(list) == 0 {
-        return true
-    }
-
+	if len(list) == 0 {
+		return true
+	}
 	for _, b := range list {
-		if b == loc.Postnr {
+		if b == value {
 			return true
 		}
 	}
 	return false
 }
 
+func (loc Location) ContainsPostcode(list []int) bool {
+	return loc.fieldContains(list, loc.Postnr)
+}
+
 func (loc Location) ContainsNumbers(list []int) bool {
-
-    if len(list) == 0 {
-        return true
-    }
-
-	for _, b := range list {
-		if b == loc.Husnr {
-			return true
-		}
-	}
-	return false
+	return loc.fieldContains(list, loc.Husnr)
 }
 
 func (loc Location) NameMatches(query string) bool {
