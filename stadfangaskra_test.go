@@ -8,9 +8,9 @@ import (
 
 func TestParseQueryParams(t *testing.T) {
 
-	out1 := []int64{101, 200}
+	out1 := []int{101, 200}
 	out2 := "Lauga*"
-	out3 := []int64{1, 10}
+	out3 := []int{1, 10}
 
 	v := url.Values{}
 	v.Set("name_startswith", "Lauga")
@@ -40,7 +40,7 @@ func TestSearchComparison(t *testing.T) {
 		Postnr: 101,
 	}
 
-	if !loc.ContainsPostcode([]int64{101}) {
+	if !loc.ContainsPostcode([]int{101}) {
 		t.Errorf("Location should contain a found postcode: %v", loc)
 	}
 
