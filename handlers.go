@@ -9,6 +9,11 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
+)
+
+var (
+	nameQueries = []string{"name_startswith", "name_endswith", "name"}
 )
 
 func getQueryValue(v url.Values, param string, query *string) error {
@@ -52,27 +57,19 @@ func ParseQueryParams(v url.Values) (postcodes []int, numbers []int, query strin
 	postcodes = getQueryParamsAsInt(v, "postcode")
 	numbers = getQueryParamsAsInt(v, "number")
 
-	ptr := &query
-	err = getQueryValue(v, "name_startswith", ptr)
-	if err != nil {
-		return
-	}
-
-	err = getQueryValue(v, "name_endswith", ptr)
-	if err != nil {
-		return
-	}
-
-	err = getQueryValue(v, "name", ptr)
-	if err != nil {
-		return
+	for _, i := range nameQueries {
+		err = getQueryValue(v, i, &query)
+		if err != nil {
+			return
+		}
 	}
 	return
 }
 
 func LocationSearchHandler(w http.ResponseWriter, req *http.Request) {
 
-	log.Printf("%s %s %s", req.RemoteAddr, req.Method, req.URL.Query())
+	start := time.Now().UnixNano()
+
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	postcodes, numbers, query, err := ParseQueryParams(req.URL.Query())
@@ -92,6 +89,7 @@ func LocationSearchHandler(w http.ResponseWriter, req *http.Request) {
 		if i.ContainsPostcode(postcodes) &&
 			i.ContainsNumbers(numbers) &&
 			i.NameMatches(query) {
+
 			if hasWritten {
 				w.Write([]byte(","))
 			}
@@ -102,6 +100,11 @@ func LocationSearchHandler(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	w.Write([]byte("]"))
+
+	log.Printf("%s %s %s, time: %f.ms", req.RemoteAddr,
+		req.Method, req.URL.Query(),
+		float64(time.Now().UnixNano()-start)/1000000.0)
+
 	return
 }
 
