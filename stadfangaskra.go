@@ -8,25 +8,27 @@ import (
 )
 
 var (
-	httpListen    = flag.String("http", "127.0.0.1:3999", "host:port to listen on")
-	placenameFile = flag.String("file", "Stadfangaskra_20130326.dsv", "csv input file")
-	Locations     []Location
+	router    = new(mux.Router)
+	Locations []Location
 )
 
 func main() {
+	var http_listen, placename_file string
+	flag.StringVar(&http_listen, "http", "127.0.0.1:3999", "host:port to listen on")
+	flag.StringVar(&placename_file, "file", "Stadfangaskra_20130326.dsv", "csv input file")
 	flag.Parse()
+
 	log.Println("Starting import")
-	ImportDatabase(*placenameFile)
+	ImportDatabase(placename_file)
 	log.Println("Data Imported")
 	log.Println("Starting server")
 
-	r := mux.NewRouter()
-	r.HandleFunc("/locations/",
+	router.HandleFunc("/locations/",
 		LocationSearchHandler)
-	r.HandleFunc("/locations/{id:[0-9]+}/",
+	router.HandleFunc("/locations/{id:[0-9]+}/",
 		LocationDetailHandler)
-	http.Handle("/", r)
+	http.Handle("/", router)
 
-	log.Fatal(http.ListenAndServe(*httpListen, nil))
+	log.Fatal(http.ListenAndServe(http_listen, nil))
 	log.Println("Bye")
 }
