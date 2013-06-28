@@ -13,17 +13,17 @@ const (
 )
 
 type Location struct {
-	Hnitnum        int64     `json:"id"`
+	Hnitnum        int     `json:"id"`
 	Svfnr          string    `json:"-"`
 	Byggd          string    `json:"-"`
-	Landnr         int64     `json:"land_nr"`
-	Heinum         int64     `json:"-"`
+	Landnr         int     `json:"land_nr"`
+	Heinum         int     `json:"-"`
 	Fasteignaheiti string    `json:"display_name"`
 	Matsnr         string    `json:"-"`
-	Postnr         int64     `json:"postcode"`
+	Postnr         int     `json:"postcode"`
 	Heiti_Nf       string    `json:"name_nominative"`
 	Heiti_Tgf      string    `json:"name_genitive"`
-	Husnr          int64     `json:"house_number"`
+	Husnr          int     `json:"house_number"`
 	Bokst          string    `json:"house_characters,omitempty"`
 	Vidsk          string    `json:"suffix,omitempty"`
 	Serheiti       string    `json:"special_name,omitempty"`
@@ -34,7 +34,7 @@ type Location struct {
 	Y              float64   `json:"y"`
 }
 
-func (loc Location) ContainsPostcode(list []int64) bool {
+func (loc Location) ContainsPostcode(list []int) bool {
 
     if len(list) == 0 {
         return true
@@ -48,7 +48,7 @@ func (loc Location) ContainsPostcode(list []int64) bool {
 	return false
 }
 
-func (loc Location) ContainsNumbers(list []int64) bool {
+func (loc Location) ContainsNumbers(list []int) bool {
 
     if len(list) == 0 {
         return true

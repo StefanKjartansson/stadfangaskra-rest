@@ -33,11 +33,11 @@ func getQueryValue(v url.Values, param string, query *string) error {
 	return nil
 }
 
-func getQueryParamsAsInt(v url.Values, param string) (values []int64) {
+func getQueryParamsAsInt(v url.Values, param string) (values []int) {
 
 	if value, ok := v[param]; ok {
 		for _, i := range value {
-			v, err := strconv.ParseInt(i, 0, 64)
+			v, err := strconv.Atoi(i)
 			if err == nil {
 				values = append(values, v)
 			}
@@ -47,7 +47,7 @@ func getQueryParamsAsInt(v url.Values, param string) (values []int64) {
 	return
 }
 
-func ParseQueryParams(v url.Values) (postcodes []int64, numbers []int64, query string, err error) {
+func ParseQueryParams(v url.Values) (postcodes []int, numbers []int, query string, err error) {
 
 	postcodes = getQueryParamsAsInt(v, "postcode")
 	numbers = getQueryParamsAsInt(v, "number")
@@ -107,7 +107,7 @@ func LocationSearchHandler(w http.ResponseWriter, req *http.Request) {
 
 func LocationDetailHandler(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
-	id, err := strconv.ParseInt(vars["id"], 10, 64)
+	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		return
 	}
