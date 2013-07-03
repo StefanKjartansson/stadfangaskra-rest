@@ -1,9 +1,9 @@
 package main
 
 import (
-	isnet "./isnet"
 	"encoding/csv"
 	"encoding/json"
+	"github.com/StefanKjartansson/isnet93"
 	iconv "github.com/djimenez/iconv-go"
 	"io"
 	"log"
@@ -75,7 +75,7 @@ func ImportFromRecord(record []string) (loc Location, err error) {
 
 	x, _ := strconv.ParseFloat(record[22], floatSize)
 	y, _ := strconv.ParseFloat(record[23], floatSize)
-	loc.X, loc.Y = isnet.Isnet93ToWgs84(x, y)
+	loc.X, loc.Y = isnet93.Isnet93ToWgs84(x, y)
 
 	return
 }
