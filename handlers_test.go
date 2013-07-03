@@ -32,7 +32,16 @@ func TestHandlers(t *testing.T) {
 		Params: url.Values{
 			"postcode": {"101"},
 			"name":     {"Seljavegur"},
-			"number":   {"1"},
+			"number":   {"2"},
+		},
+		Status: http.StatusOK,
+	}, {
+		Desc:    "",
+		Handler: LocationSearchHandler,
+		Path:    path,
+		Params: url.Values{
+			"name":   {"Seljavegur"},
+			"number": {"2"},
 		},
 		Status: http.StatusOK,
 	}, {
