@@ -2,10 +2,8 @@ package main
 
 import (
 	"code.google.com/p/gorilla/mux"
-	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"strconv"
 	"time"
 )
@@ -14,40 +12,10 @@ const (
 	json_header = "application/json; charset=utf-8"
 )
 
-func getQueryValue(v url.Values, param string, query *string) error {
-
-	if qval, ok := v[param]; ok {
-		if *query != "" {
-			return fmt.Errorf("Too many queries %v, %v", qval, query)
-		}
-
-		if len(qval) > 1 {
-			return fmt.Errorf("Only accepts a single query parameter %v", qval)
-		}
-		*query = qval[0]
-	}
-
-	return nil
-}
-
-func getQueryParamsAsInt(v url.Values, param string) (values []int) {
-
-	if value, ok := v[param]; ok {
-		for _, i := range value {
-			v, err := strconv.Atoi(i)
-			if err == nil {
-				values = append(values, v)
-			}
-		}
-	}
-	return
-}
-
 func LocationSearchHandler(w http.ResponseWriter, req *http.Request) {
 
 	hasWritten := false
 	key := [2]int{}
-	query := ""
 	start := time.Now().UnixNano()
 	v := req.URL.Query()
 
@@ -55,7 +23,7 @@ func LocationSearchHandler(w http.ResponseWriter, req *http.Request) {
 
 	postcodes := getQueryParamsAsInt(v, "postcode")
 	numbers := getQueryParamsAsInt(v, "number")
-	err := getQueryValue(v, "name", &query)
+	query, err := getSingleQueryValueOrEmpty(v, "name")
 
 	if err != nil {
 		log.Println(err)

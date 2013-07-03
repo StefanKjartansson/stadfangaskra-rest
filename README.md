@@ -7,6 +7,8 @@ In-memory REST service for geocoding Icelandic addresses written in golang
 
 Needed a very fast service to geocode addresses and wanted to try golang.
 
+It's very fast, request time ranges from a puny 0.03 ms to 8.ms depending on volume returned.
+
 ### How does it work?
 
 Loads the contents of the Icelandic placenames csv file from [Opin Gögn](http://gogn.island.is/) into memory and wraps it in a warm HTTP blanket.
@@ -21,5 +23,8 @@ To start the server:
 
 Example query:
 ```bash
-curl "http://localhost:8080/locations/?postcode=108&postcode=200&name_endswith=vegi&number=12&number=15&number=8"
+curl "http://localhost:3999/locations/?postcode=101"
+curl "http://localhost:3999/locations/?postcode=101&name=Selja*"
+curl "http://localhost:3999/locations/?postcode=101&name=Seljavegur"
+curl "http://localhost:3999/locations/?postcode=101&name=Seljavegur&number=1"
 ```
