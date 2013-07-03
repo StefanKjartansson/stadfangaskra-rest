@@ -30,27 +30,7 @@ type Location struct {
 	Gagna_Eign     string    `json:"data_owner,omitempty"`
 	X              float64   `json:"x"`
 	Y              float64   `json:"y"`
-}
-
-func (loc Location) fieldContains(list []int, value int) bool {
-
-	if len(list) == 0 {
-		return true
-	}
-	for _, b := range list {
-		if b == value {
-			return true
-		}
-	}
-	return false
-}
-
-func (loc Location) ContainsPostcode(list []int) bool {
-	return loc.fieldContains(list, loc.Postnr)
-}
-
-func (loc Location) ContainsNumbers(list []int) bool {
-	return loc.fieldContains(list, loc.Husnr)
+	JSONCache      []byte    `json:"-"`
 }
 
 func (loc Location) NameMatches(query string) bool {
