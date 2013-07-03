@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	IndexTable     = make(map[int]*Location)
-	LookupTable    = make(map[[2]int][]*Location)
-	DefaultNumbers = []int{}
+	IndexTable       = make(map[int]*Location)
+	LookupTable      = make(map[[2]int][]*Location)
+	DefaultNumbers   = []int{}
+	DefaultPostCodes = []int{}
 )
 
 func ImportFromRecord(record []string) (loc Location, err error) {
@@ -131,6 +132,8 @@ func ImportDatabase(pfile string) {
 		}
 	}
 
+	pnrs := make(map[int]string)
+
 	for idx, l := range Locations {
 
 		b, err := json.Marshal(l)
@@ -140,6 +143,7 @@ func ImportDatabase(pfile string) {
 		Locations[idx].JSONCache = b
 
 		key := [2]int{l.Postnr, l.Husnr}
+		pnrs[l.Postnr] = ""
 		LookupTable[key] = append(LookupTable[key], &Locations[idx])
 		IndexTable[l.Hnitnum] = &Locations[idx]
 
@@ -150,6 +154,10 @@ func ImportDatabase(pfile string) {
 
 	for i := 1; i < maxNum+1; i++ {
 		DefaultNumbers = append(DefaultNumbers, i)
+	}
+
+	for p, _ := range pnrs {
+		DefaultPostCodes = append(DefaultPostCodes, p)
 	}
 
 	return
