@@ -2,18 +2,16 @@ package main
 
 import (
 	"code.google.com/p/gorilla/mux"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 )
 
-var (
-	nameQueries = []string{"name_startswith", "name_endswith", "name"}
+const (
+	json_header = "application/json; charset=utf-8"
 )
 
 func getQueryValue(v url.Values, param string, query *string) error {
@@ -26,13 +24,7 @@ func getQueryValue(v url.Values, param string, query *string) error {
 		if len(qval) > 1 {
 			return fmt.Errorf("Only accepts a single query parameter %v", qval)
 		}
-		if strings.HasSuffix(param, "_startswith") {
-			*query = qval[0] + "*"
-		} else if strings.HasSuffix(param, "_endswith") {
-			*query = "*" + qval[0]
-		} else {
-			*query = qval[0]
-		}
+		*query = qval[0]
 	}
 
 	return nil
@@ -48,31 +40,22 @@ func getQueryParamsAsInt(v url.Values, param string) (values []int) {
 			}
 		}
 	}
-
-	return
-}
-
-func ParseQueryParams(v url.Values) (postcodes []int, numbers []int, query string, err error) {
-
-	postcodes = getQueryParamsAsInt(v, "postcode")
-	numbers = getQueryParamsAsInt(v, "number")
-
-	for _, i := range nameQueries {
-		err = getQueryValue(v, i, &query)
-		if err != nil {
-			return
-		}
-	}
 	return
 }
 
 func LocationSearchHandler(w http.ResponseWriter, req *http.Request) {
 
+	hasWritten := false
+	key := [2]int{}
+	query := ""
 	start := time.Now().UnixNano()
+	v := req.URL.Query()
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Type", json_header)
 
-	postcodes, numbers, query, err := ParseQueryParams(req.URL.Query())
+	postcodes := getQueryParamsAsInt(v, "postcode")
+	numbers := getQueryParamsAsInt(v, "number")
+	err := getQueryValue(v, "name", &query)
 
 	if err != nil {
 		log.Println(err)
@@ -80,25 +63,37 @@ func LocationSearchHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// If there are no numbers, use the default values
+	if len(numbers) == 0 {
+		numbers = DefaultNumbers
+	}
+
 	w.Write([]byte("["))
 
-	enc := json.NewEncoder(w)
-	hasWritten := false
+	//TODO, default postcodes
+	for _, pc := range postcodes {
+		key[0] = pc
 
-	for _, i := range Locations {
-		if i.ContainsPostcode(postcodes) &&
-			i.ContainsNumbers(numbers) &&
-			i.NameMatches(query) {
+		for _, n := range numbers {
+			key[1] = n
 
-			if hasWritten {
-				w.Write([]byte(","))
+			for _, l := range LookupTable[key] {
+
+				if !l.NameMatches(query) {
+					continue
+				}
+
+				if hasWritten {
+					w.Write([]byte(","))
+				}
+
+				w.Write(l.JSONCache)
+				hasWritten = true
+
 			}
-			if err := enc.Encode(&i); err != nil {
-				log.Println(err)
-			}
-			hasWritten = true
 		}
 	}
+
 	w.Write([]byte("]"))
 
 	log.Printf("%s %s %s, time: %f.ms", req.RemoteAddr,
@@ -114,18 +109,14 @@ func LocationDetailHandler(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		return
 	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Type", json_header)
 
-	for _, i := range Locations {
-		if i.Hnitnum == id {
-			b, err := json.Marshal(i)
-			if err != nil {
-				fmt.Println("error:", err)
-			}
-			w.Write(b)
-			return
-		}
-	}
-	w.Write([]byte("{}"))
+	start := time.Now().UnixNano()
+	w.Write(IndexTable[id].JSONCache)
+
+	log.Printf("%s %s %s, time: %f.ms", req.RemoteAddr,
+		req.Method, req.URL.Query(),
+		float64(time.Now().UnixNano()-start)/1000000.0)
+
 	return
 }
