@@ -36,9 +36,12 @@ func LocationSearchHandler(w http.ResponseWriter, req *http.Request) {
 		numbers = DefaultNumbers
 	}
 
+	if len(postcodes) == 0 {
+		postcodes = DefaultPostCodes
+	}
+
 	w.Write([]byte("["))
 
-	//TODO, default postcodes
 	for _, pc := range postcodes {
 		key[0] = pc
 
