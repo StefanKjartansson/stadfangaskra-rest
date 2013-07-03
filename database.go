@@ -3,12 +3,19 @@ package main
 import (
 	isnet "./isnet"
 	"encoding/csv"
+	"encoding/json"
 	iconv "github.com/djimenez/iconv-go"
 	"io"
 	"log"
 	"os"
 	"strconv"
 	"time"
+)
+
+var (
+	IndexTable     = make(map[int]*Location)
+	LookupTable    = make(map[[2]int][]*Location)
+	DefaultNumbers = []int{}
 )
 
 func ImportFromRecord(record []string) (loc Location, err error) {
@@ -112,6 +119,7 @@ func fileReader(filename string) chan Location {
 
 func ImportDatabase(pfile string) {
 
+	maxNum := 0
 	readChan := fileReader(pfile)
 
 	closed := false
@@ -121,6 +129,27 @@ func ImportDatabase(pfile string) {
 			closed = !ok
 			Locations = append(Locations, ev)
 		}
+	}
+
+	for idx, l := range Locations {
+
+		b, err := json.Marshal(l)
+		if err != nil {
+			log.Fatal(err)
+		}
+		Locations[idx].JSONCache = b
+
+		key := [2]int{l.Postnr, l.Husnr}
+		LookupTable[key] = append(LookupTable[key], &Locations[idx])
+		IndexTable[l.Hnitnum] = &Locations[idx]
+
+		if maxNum < l.Husnr {
+			maxNum = l.Husnr
+		}
+	}
+
+	for i := 1; i < maxNum+1; i++ {
+		DefaultNumbers = append(DefaultNumbers, i)
 	}
 
 	return
