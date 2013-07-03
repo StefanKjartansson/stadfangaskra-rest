@@ -1,6 +1,8 @@
 stadfangaskra-rest
 ==================
 
+[![Build Status](https://secure.travis-ci.org/StefanKjartansson/stadfangaskra-rest.png)](http://travis-ci.org/StefanKjartansson/stadfangaskra-rest)
+
 In-memory REST service for geocoding Icelandic addresses written in golang
 
 ### Why?
