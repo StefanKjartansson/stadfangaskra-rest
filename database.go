@@ -1,4 +1,4 @@
-package main
+package stadfangaskra
 
 import (
 	"encoding/csv"
@@ -13,6 +13,7 @@ import (
 )
 
 var (
+	Locations        []Location
 	IndexTable       = make(map[int]*Location)
 	LookupTable      = make(map[[2]int][]*Location)
 	DefaultNumbers   = []int{}
@@ -81,57 +82,36 @@ func ImportFromRecord(record []string) (loc Location, err error) {
 	return
 }
 
-func fileReader(filename string) chan Location {
+func importStream(source io.Reader) error {
 
-	buffer := make(chan Location, 256)
+	reader := csv.NewReader(source)
+	reader.Comma = '|'
+	_, _ = reader.Read()
 
-	go func() {
-
-		file, err := os.Open(filename)
-		if err != nil {
+	for {
+		r, err := reader.Read()
+		if err == io.EOF {
+			break
+		} else if err != nil {
 			log.Fatal(err)
-		} else {
-
-			x, _ := iconv.NewReader(file, "iso-8859-1", "utf-8")
-			reader := csv.NewReader(x)
-			reader.Comma = '|'
-			_, _ = reader.Read()
-
-			for {
-				record, err := reader.Read()
-				if err == io.EOF {
-					break
-				} else if err != nil {
-					log.Fatal(err)
-				}
-				t, err := ImportFromRecord(record)
-				if err != nil {
-					log.Fatal(err)
-				}
-				buffer <- t
-			}
-
-			close(buffer)
 		}
-	}()
+		t, err := ImportFromRecord(r)
 
-	return buffer
-}
-
-func ImportDatabase(pfile string) {
-
-	maxNum := 0
-	readChan := fileReader(pfile)
-
-	closed := false
-	for !closed {
-		select {
-		case ev, ok := <-readChan:
-			closed = !ok
-			Locations = append(Locations, ev)
+		if err != nil {
+			return err
 		}
+
+		Locations = append(Locations, t)
 	}
 
+	return nil
+}
+
+func postProcess() {
+
+	log.Println("Postprocessing started")
+
+	maxNum := 0
 	pnrs := make(map[int]string)
 
 	for idx, l := range Locations {
@@ -160,5 +140,24 @@ func ImportDatabase(pfile string) {
 		DefaultPostCodes = append(DefaultPostCodes, p)
 	}
 
-	return
+	log.Println("Postprocessing finished")
+}
+
+func ImportDatabase(pfile string) {
+
+	log.Println("Starting import")
+
+	defer postProcess()
+
+	file, err := os.Open(pfile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	x, _ := iconv.NewReader(file, "iso-8859-1", "utf-8")
+
+	importStream(x)
+
+	log.Println("Import finished")
+
 }
