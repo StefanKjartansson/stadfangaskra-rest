@@ -1,34 +1,80 @@
-package main
+package stadfangaskra
 
 import (
+	"code.google.com/p/gorilla/mux"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"testing"
 )
 
-func TestHandlers(t *testing.T) {
+var serverAddr string
+var once sync.Once
 
-	const path = "/locations/?"
+func startServer() {
+
+	router := new(mux.Router)
+	SetupRoutes(router)
+	http.Handle("/", router)
+	server := httptest.NewServer(nil)
+	serverAddr = server.Listener.Addr().String()
+	log.Print("Test Server running on ", serverAddr)
+
+}
+
+func testRequest(t *testing.T, url string, v interface{}) {
+
+	t.Logf("[GET]: %s\n", url)
+
+	r, err := http.Get(url)
+
+	if err != nil {
+		t.Errorf("Error: %v\n", err)
+	}
+
+	if r.StatusCode != http.StatusOK {
+		t.Errorf("Wrong status code: %d\n", r.StatusCode)
+	}
+
+	content, err := ioutil.ReadAll(r.Body)
+	r.Body.Close()
+
+	err = json.Unmarshal(content, v)
+	if err != nil {
+		t.Errorf("Error: %v\n", err)
+	}
+
+}
+
+func TestSingleHandler(t *testing.T) {
+
+	once.Do(startServer)
+
+	url := fmt.Sprintf("http://%s/locations/10015125/", serverAddr)
+	loc := Location{}
+
+	testRequest(t, url, &loc)
+
+}
+
+func TestSearchHandlers(t *testing.T) {
+
+	once.Do(startServer)
 
 	tests := []struct {
-		Desc    string
-		Handler func(http.ResponseWriter, *http.Request)
-		Path    string
-		Params  url.Values
-		Status  int
+		Params url.Values
+		Status int
 	}{{
-		Desc:    "",
-		Handler: LocationSearchHandler,
-		Path:    path,
 		Params: url.Values{
 			"postcode": {"101"},
 		},
 		Status: http.StatusOK,
 	}, {
-		Desc:    "",
-		Handler: LocationSearchHandler,
-		Path:    path,
 		Params: url.Values{
 			"postcode": {"101"},
 			"name":     {"Seljavegur"},
@@ -36,30 +82,23 @@ func TestHandlers(t *testing.T) {
 		},
 		Status: http.StatusOK,
 	}, {
-		Desc:    "",
-		Handler: LocationSearchHandler,
-		Path:    path,
 		Params: url.Values{
 			"name":   {"Seljavegur"},
 			"number": {"2"},
 		},
 		Status: http.StatusOK,
 	}, {
-		Desc:    "Single entity",
-		Handler: LocationDetailHandler,
-		Path:    "/locations/10015125/",
-		Status:  http.StatusOK,
+		Params: url.Values{
+			"name":     {"*vegur"},
+			"number":   {"2"},
+			"postcode": {"101", "200"},
+		},
+		Status: http.StatusOK,
 	}}
 
 	for _, test := range tests {
-		record := httptest.NewRecorder()
-		req, err := http.NewRequest("GET", test.Path+test.Params.Encode(), nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		test.Handler(record, req)
-		if got, want := record.Code, test.Status; got != want {
-			t.Errorf("%s: response code = %d, want %d", test.Desc, got, want)
-		}
+		url := fmt.Sprintf("http://%s/locations/?%s", serverAddr, test.Params.Encode())
+		locs := []Location{}
+		testRequest(t, url, &locs)
 	}
 }

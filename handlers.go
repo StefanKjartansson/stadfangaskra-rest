@@ -1,4 +1,4 @@
-package main
+package stadfangaskra
 
 import (
 	"code.google.com/p/gorilla/mux"
@@ -11,6 +11,14 @@ import (
 const (
 	json_header = "application/json; charset=utf-8"
 )
+
+func logRequestInfo(req *http.Request, start int64) {
+
+	log.Printf("%s %s %s, time: %f.ms", req.RemoteAddr,
+		req.Method, req.URL.Query(),
+		float64(time.Now().UnixNano()-start)/1000000.0)
+
+}
 
 func LocationSearchHandler(w http.ResponseWriter, req *http.Request) {
 
@@ -67,9 +75,7 @@ func LocationSearchHandler(w http.ResponseWriter, req *http.Request) {
 
 	w.Write([]byte("]"))
 
-	log.Printf("%s %s %s, time: %f.ms", req.RemoteAddr,
-		req.Method, req.URL.Query(),
-		float64(time.Now().UnixNano()-start)/1000000.0)
+	logRequestInfo(req, start)
 
 	return
 }
@@ -84,10 +90,16 @@ func LocationDetailHandler(w http.ResponseWriter, req *http.Request) {
 
 	start := time.Now().UnixNano()
 	w.Write(IndexTable[id].JSONCache)
-
-	log.Printf("%s %s %s, time: %f.ms", req.RemoteAddr,
-		req.Method, req.URL.Query(),
-		float64(time.Now().UnixNano()-start)/1000000.0)
+	logRequestInfo(req, start)
 
 	return
+}
+
+func SetupRoutes(r *mux.Router) {
+
+	r.HandleFunc("/locations/",
+		LocationSearchHandler)
+	r.HandleFunc("/locations/{id:[0-9]+}/",
+		LocationDetailHandler)
+
 }
