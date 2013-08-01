@@ -62,6 +62,19 @@ func TestSingleHandler(t *testing.T) {
 
 }
 
+func TestAutoCompleteHandler(t *testing.T) {
+
+	once.Do(startServer)
+
+	url := fmt.Sprintf("http://%s/ac/streets/?q=Borg", serverAddr)
+	res := []string{}
+
+	testRequest(t, url, &res)
+
+	t.Log(res)
+
+}
+
 func TestSearchHandlers(t *testing.T) {
 
 	once.Do(startServer)

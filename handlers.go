@@ -2,9 +2,12 @@ package stadfangaskra
 
 import (
 	"code.google.com/p/gorilla/mux"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -12,31 +15,69 @@ const (
 	json_header = "application/json; charset=utf-8"
 )
 
-func logRequestInfo(req *http.Request, start int64) {
-
-	log.Printf("%s %s %s, time: %f.ms", req.RemoteAddr,
-		req.Method, req.URL.Query(),
-		float64(time.Now().UnixNano()-start)/1000000.0)
-
+func timedResponse(f func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now().UnixNano()
+		f(w, r)
+		log.Printf("%s %s %s, time: %f.ms", r.RemoteAddr,
+			r.Method, r.URL.Query(),
+			float64(time.Now().UnixNano()-start)/1000000.0)
+	}
 }
 
-func LocationSearchHandler(w http.ResponseWriter, req *http.Request) {
+func errorHandler(f func(http.ResponseWriter, *http.Request) error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := f(w, r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			log.Printf("handling %q: %v", r.RequestURI, err)
+		} else {
+			w.Header().Set("Content-Type", json_header)
+		}
+	}
+}
 
-	hasWritten := false
+func byteChanToJSON(w io.Writer, cs chan []byte, quoteValue bool) chan bool {
+
+	done := make(chan bool, 1)
+
+	go func() {
+
+		quote := []byte("\"")
+		hasWritten := false
+		w.Write([]byte("["))
+		for s := range cs {
+			if hasWritten {
+				w.Write([]byte(","))
+			}
+			if quoteValue {
+				w.Write(quote)
+			}
+			w.Write(s)
+			if quoteValue {
+				w.Write(quote)
+			}
+			hasWritten = true
+		}
+		w.Write([]byte("]"))
+
+		done <- true
+	}()
+
+	return done
+}
+
+func LocationSearchHandler(w http.ResponseWriter, req *http.Request) error {
+
 	key := [2]int{}
-	start := time.Now().UnixNano()
 	v := req.URL.Query()
-
-	w.Header().Set("Content-Type", json_header)
 
 	postcodes := getQueryParamsAsInt(v, "postcode")
 	numbers := getQueryParamsAsInt(v, "number")
 	query, err := getSingleQueryValueOrEmpty(v, "name")
 
 	if err != nil {
-		log.Println(err)
-		w.Write([]byte("Error"))
-		return
+		return fmt.Errorf("Error: %v", err)
 	}
 
 	// If there are no numbers, use the default values
@@ -48,58 +89,65 @@ func LocationSearchHandler(w http.ResponseWriter, req *http.Request) {
 		postcodes = DefaultPostCodes
 	}
 
-	w.Write([]byte("["))
-
+	cs := make(chan []byte)
+	done := byteChanToJSON(w, cs, false)
 	for _, pc := range postcodes {
 		key[0] = pc
-
 		for _, n := range numbers {
 			key[1] = n
-
 			for _, l := range LookupTable[key] {
-
 				if !l.NameMatches(query) {
 					continue
 				}
-
-				if hasWritten {
-					w.Write([]byte(","))
-				}
-
-				w.Write(l.JSONCache)
-				hasWritten = true
-
+				cs <- l.JSONCache
 			}
 		}
 	}
+	close(cs)
+	<-done
+	return nil
 
-	w.Write([]byte("]"))
-
-	logRequestInfo(req, start)
-
-	return
 }
 
-func LocationDetailHandler(w http.ResponseWriter, req *http.Request) {
+func LocationDetailHandler(w http.ResponseWriter, req *http.Request) error {
 	vars := mux.Vars(req)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		return
+		return fmt.Errorf("Invalid id parameter")
 	}
-	w.Header().Set("Content-Type", json_header)
-
-	start := time.Now().UnixNano()
 	w.Write(IndexTable[id].JSONCache)
-	logRequestInfo(req, start)
+	return nil
+}
 
-	return
+func AutoCompleteStreetNamesHandler(w http.ResponseWriter, req *http.Request) error {
+
+	v := req.URL.Query()
+	q, present := v["q"]
+	if !present {
+		return fmt.Errorf("Query parameter missing")
+	}
+
+	matcher := q[0]
+
+	cs := make(chan []byte)
+	done := byteChanToJSON(w, cs, true)
+	for _, s := range StreetNames {
+		if strings.Contains(s, matcher) {
+			cs <- []byte(s)
+		}
+	}
+	close(cs)
+	<-done
+	return nil
 }
 
 func SetupRoutes(r *mux.Router) {
 
 	r.HandleFunc("/locations/",
-		LocationSearchHandler)
+		timedResponse(errorHandler(LocationSearchHandler)))
 	r.HandleFunc("/locations/{id:[0-9]+}/",
-		LocationDetailHandler)
+		timedResponse(errorHandler(LocationDetailHandler)))
+	r.HandleFunc("/ac/streets/",
+		timedResponse(errorHandler(AutoCompleteStreetNamesHandler)))
 
 }
