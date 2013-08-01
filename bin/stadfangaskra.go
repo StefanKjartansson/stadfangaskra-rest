@@ -18,7 +18,6 @@ func main() {
 	flag.StringVar(&placename_file, "file", "Stadfangaskra_20130326.dsv", "csv input file")
 	flag.Parse()
 
-	log.Println("Starting import")
 	stadfangaskra.ImportDatabase(placename_file)
 	log.Println("Data Imported")
 	log.Println("Starting server")
