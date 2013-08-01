@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -18,6 +19,7 @@ var (
 	LookupTable      = make(map[[2]int][]*Location)
 	DefaultNumbers   = []int{}
 	DefaultPostCodes = []int{}
+	StreetNames      = []string{}
 )
 
 func ImportFromRecord(record []string) (loc Location, err error) {
@@ -112,7 +114,8 @@ func postProcess() {
 	log.Println("Postprocessing started")
 
 	maxNum := 0
-	pnrs := make(map[int]string)
+	pnrs := make(map[int]struct{})
+	streetnames := make(map[string]struct{})
 
 	for idx, l := range Locations {
 
@@ -123,9 +126,11 @@ func postProcess() {
 		Locations[idx].JSONCache = b
 
 		key := [2]int{l.Postnr, l.Husnr}
-		pnrs[l.Postnr] = ""
+		pnrs[l.Postnr] = struct{}{}
 		LookupTable[key] = append(LookupTable[key], &Locations[idx])
 		IndexTable[l.Hnitnum] = &Locations[idx]
+
+		streetnames[l.Heiti_Nf] = struct{}{}
 
 		if maxNum < l.Husnr {
 			maxNum = l.Husnr
@@ -139,6 +144,13 @@ func postProcess() {
 	for p, _ := range pnrs {
 		DefaultPostCodes = append(DefaultPostCodes, p)
 	}
+
+	for k, _ := range streetnames {
+		StreetNames = append(StreetNames, k)
+	}
+
+	sort.Ints(DefaultPostCodes)
+	sort.Strings(StreetNames)
 
 	log.Println("Postprocessing finished")
 }
