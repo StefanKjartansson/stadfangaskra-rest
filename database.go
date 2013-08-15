@@ -10,6 +10,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -130,7 +131,7 @@ func postProcess() {
 		LookupTable[key] = append(LookupTable[key], &Locations[idx])
 		IndexTable[l.Hnitnum] = &Locations[idx]
 
-		streetnames[l.Heiti_Nf] = struct{}{}
+		streetnames[strings.TrimSpace(l.Heiti_Nf)] = struct{}{}
 
 		if maxNum < l.Husnr {
 			maxNum = l.Husnr
