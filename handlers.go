@@ -11,12 +11,14 @@ import (
 	"time"
 )
 
-const (
-	json_header = "application/json; charset=utf-8"
-)
-
 func timedResponse(f func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
+
 	return func(w http.ResponseWriter, r *http.Request) {
+
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
+
 		start := time.Now().UnixNano()
 		f(w, r)
 		log.Printf("%s %s %s, time: %f.ms", r.RemoteAddr,
@@ -27,12 +29,11 @@ func timedResponse(f func(http.ResponseWriter, *http.Request)) http.HandlerFunc 
 
 func errorHandler(f func(http.ResponseWriter, *http.Request) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
 		err := f(w, r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			log.Printf("handling %q: %v", r.RequestURI, err)
-		} else {
-			w.Header().Set("Content-Type", json_header)
 		}
 	}
 }
@@ -110,6 +111,7 @@ func LocationSearchHandler(w http.ResponseWriter, req *http.Request) error {
 }
 
 func LocationDetailHandler(w http.ResponseWriter, req *http.Request) error {
+
 	vars := mux.Vars(req)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
@@ -149,5 +151,4 @@ func SetupRoutes(r *mux.Router) {
 		timedResponse(errorHandler(LocationDetailHandler)))
 	r.HandleFunc("/ac/streets/",
 		timedResponse(errorHandler(AutoCompleteStreetNamesHandler)))
-
 }
