@@ -4,7 +4,8 @@
 BOX_NAME = "ubuntu"
 BOX_URI = "http://files.vagrantup.com/precise64.box"
 
-SCM, ORG, PROJECT = File.absolute_path(File.dirname(__FILE__)).split('/').last(3)
+SCM, ORG, PROJECT = File.expand_path(File.dirname(__FILE__)).split('/').last(3)
+
 GOPATH = "/home/vagrant/go/src/#{SCM}/#{ORG}"
 PPATH = "#{GOPATH}/#{PROJECT}"
 
