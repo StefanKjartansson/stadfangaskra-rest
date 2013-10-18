@@ -1,117 +1,116 @@
 package stadfangaskra
 
 import (
-	"code.google.com/p/gorilla/mux"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
+	"os"
 	"sync"
 	"testing"
 )
 
 var serverAddr string
 var once sync.Once
+var client *http.Client
 
 func startServer() {
 
-	router := new(mux.Router)
-	SetupRoutes(router)
-	http.Handle("/", router)
+	file, err := os.Open("./fixture.json")
+	if err != nil {
+		panic(err)
+	}
+
+	locs := []Location{}
+	decoder := json.NewDecoder(file)
+
+	err = decoder.Decode(&locs)
+	if err != nil {
+		panic(err)
+	}
+
+	for idx, l := range locs {
+		locs[idx].Name = fmt.Sprintf("%s, %d %s", l.Name, l.Postcode, l.Municipality)
+		b, err := json.Marshal(l)
+		if err != nil {
+			panic(err)
+		}
+		locs[idx].JSONCache = b
+	}
+
+	ls := NewLocationService("/locations/", locs)
+	http.Handle("/", ls.GetRouter())
 	server := httptest.NewServer(nil)
 	serverAddr = server.Listener.Addr().String()
-	log.Print("Test Server running on ", serverAddr)
+	client = http.DefaultClient
+}
+
+func makeRequest(t *testing.T, method, url string, v interface{}) *http.Response {
+
+	var r *http.Response
+
+	url = fmt.Sprintf("http://%s/locations%s", serverAddr, url)
+
+	t.Logf("[%s]: %s", method, url)
+
+	switch method {
+	case "POST", "PUT":
+		buf, err := json.Marshal(v)
+		if err != nil {
+			t.Errorf("Unable to serialize %v to json", v)
+		}
+
+		t.Logf("[%s] JSON: %s", method, string(buf))
+		req, err := http.NewRequest(method, url, bytes.NewReader(buf))
+		req.Header.Add("Content-Type", "application/json")
+		if err != nil {
+			t.Fatalf("[%s] %s, error: %v", method, url, err)
+		}
+		r, err = client.Do(req)
+		if err != nil {
+			t.Fatalf("Error when posting to %s, error: %v", url, err)
+		}
+	default:
+		r, err := client.Get(url)
+		if err != nil {
+			t.Fatalf("Error: %v\n", err)
+		}
+
+		if r.StatusCode != http.StatusOK {
+			body, _ := ioutil.ReadAll(r.Body)
+			t.Fatalf("Wrong status code: %d, body:%s\n", r.StatusCode, string(body))
+		}
+
+		dec := json.NewDecoder(r.Body)
+		defer r.Body.Close()
+		err = dec.Decode(v)
+		if err != nil {
+			t.Fatalf("Error: %v\n", err)
+		}
+	}
+
+	return r
 
 }
 
-func testRequest(t *testing.T, url string, v interface{}) {
-
-	t.Logf("[GET]: %s\n", url)
-
-	r, err := http.Get(url)
-
-	if err != nil {
-		t.Errorf("Error: %v\n", err)
-	}
-
-	if r.StatusCode != http.StatusOK {
-		t.Errorf("Wrong status code: %d\n", r.StatusCode)
-	}
-
-	content, err := ioutil.ReadAll(r.Body)
-	r.Body.Close()
-
-	err = json.Unmarshal(content, v)
-	if err != nil {
-		t.Errorf("Error: %v\n", err)
-	}
-
+func getJSON(t *testing.T, url string, v interface{}) *http.Response {
+	return makeRequest(t, "GET", url, v)
 }
 
-func TestSingleHandler(t *testing.T) {
+func TestSearch(t *testing.T) {
+
+	t.Log("Testing search")
 
 	once.Do(startServer)
 
-	url := fmt.Sprintf("http://%s/locations/10015125/", serverAddr)
-	loc := Location{}
+	url := "/?street=Laugavegur&number=2"
+	results := []Location{}
+	getJSON(t, url, &results)
 
-	testRequest(t, url, &loc)
+	url = "/?street=Laugavegur&number=22"
+	results = []Location{}
+	getJSON(t, url, &results)
 
-}
-
-func TestAutoCompleteHandler(t *testing.T) {
-
-	once.Do(startServer)
-
-	url := fmt.Sprintf("http://%s/ac/streets/?q=Borg", serverAddr)
-	res := []string{}
-
-	testRequest(t, url, &res)
-
-	t.Log(res)
-
-}
-
-func TestSearchHandlers(t *testing.T) {
-
-	once.Do(startServer)
-
-	tests := []struct {
-		Params url.Values
-		Status int
-	}{{
-		Params: url.Values{
-			"postcode": {"101"},
-		},
-		Status: http.StatusOK,
-	}, {
-		Params: url.Values{
-			"postcode": {"101"},
-			"name":     {"Seljavegur"},
-			"number":   {"2"},
-		},
-		Status: http.StatusOK,
-	}, {
-		Params: url.Values{
-			"name":   {"Seljavegur"},
-			"number": {"2"},
-		},
-		Status: http.StatusOK,
-	}, {
-		Params: url.Values{
-			"name":     {"*vegur"},
-			"number":   {"2"},
-			"postcode": {"101", "200"},
-		},
-		Status: http.StatusOK,
-	}}
-
-	for _, test := range tests {
-		url := fmt.Sprintf("http://%s/locations/?%s", serverAddr, test.Params.Encode())
-		locs := []Location{}
-		testRequest(t, url, &locs)
-	}
 }
