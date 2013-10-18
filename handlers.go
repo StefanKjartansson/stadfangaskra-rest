@@ -1,154 +1,152 @@
 package stadfangaskra
 
 import (
-	"code.google.com/p/gorilla/mux"
-	"fmt"
-	"io"
-	"log"
+	"encoding/json"
+	"errors"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
+	log "github.com/llimllib/loglevel"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func timedResponse(f func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
+var (
+	ErrInvalidId = errors.New("Invalid id")
+)
 
-	return func(w http.ResponseWriter, r *http.Request) {
+type HandleFuncErrorStatus func(http.ResponseWriter, *http.Request) (error, int)
 
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
-
-		start := time.Now().UnixNano()
-		f(w, r)
-		log.Printf("%s %s %s, time: %f.ms", r.RemoteAddr,
-			r.Method, r.URL.Query(),
-			float64(time.Now().UnixNano()-start)/1000000.0)
-	}
+type LocationService struct {
+	prefix         string
+	streetNames    []string
+	postCodes      []int
+	locations      []Location
+	indexTable     map[int]*Location
+	defaultHeaders map[string]string
 }
 
-func errorHandler(f func(http.ResponseWriter, *http.Request) error) http.HandlerFunc {
+func parseFilter(req *http.Request) (*Filter, error) {
+
+	req.ParseForm()
+	decoder := schema.NewDecoder()
+	f := new(Filter)
+	err := decoder.Decode(f, req.Form)
+	return f, err
+
+}
+
+func NewLocationService(prefix string, locs []Location) *LocationService {
+
+	l := LocationService{
+		prefix:     strings.TrimRight(prefix, "/"),
+		indexTable: make(map[int]*Location),
+		locations:  locs,
+		defaultHeaders: map[string]string{
+			"Content-Type":                 "application/json; charset=utf-8",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept",
+		},
+	}
+
+	start := time.Now()
+
+	pc := make(map[int]struct{})
+	sn := make(map[string]struct{})
+
+	for idx, i := range l.locations {
+		l.indexTable[i.ID] = &l.locations[idx]
+		pc[i.Postcode] = struct{}{}
+		sn[i.Street] = struct{}{}
+	}
+
+	for p, _ := range pc {
+		l.postCodes = append(l.postCodes, p)
+	}
+
+	for k, _ := range sn {
+		l.streetNames = append(l.streetNames, k)
+	}
+
+	sort.Ints(l.postCodes)
+	sort.Strings(l.streetNames)
+
+	log.Infof("Initialize took: %f.ms", time.Now().Sub(start).Seconds()*1000)
+
+	return &l
+
+}
+
+// Error catching middleware
+func (l *LocationService) wrapHttpHandler(f HandleFuncErrorStatus) http.HandlerFunc {
+
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		err := f(w, r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			log.Printf("handling %q: %v", r.RequestURI, err)
+		for key, value := range l.defaultHeaders {
+			w.Header().Set(key, value)
 		}
+		start := time.Now()
+		err, status := f(w, r)
+		if err != nil {
+			log.Errorln(err.Error())
+			http.Error(w, err.Error(), status)
+		} else {
+			log.Infof("%s %s %s, time: %f.ms", r.RemoteAddr,
+				r.Method, r.URL.Query(),
+				time.Now().Sub(start).Seconds()*1000)
+		}
+
 	}
 }
 
-func byteChanToJSON(w io.Writer, cs chan []byte, quoteValue bool) chan bool {
+func (l *LocationService) search(w http.ResponseWriter, req *http.Request) (error, int) {
 
-	done := make(chan bool, 1)
+	f, err := parseFilter(req)
+	if err != nil {
+		return err, http.StatusBadRequest
+	}
 
-	go func() {
+	hasWritten := false
+	w.Write([]byte("["))
 
-		quote := []byte("\"")
-		hasWritten := false
-		w.Write([]byte("["))
-		for s := range cs {
+	for _, l := range l.locations {
+		if f.Match(&l) {
 			if hasWritten {
 				w.Write([]byte(","))
 			}
-			if quoteValue {
-				w.Write(quote)
-			}
-			w.Write(s)
-			if quoteValue {
-				w.Write(quote)
-			}
+			w.Write(l.JSONCache)
 			hasWritten = true
 		}
-		w.Write([]byte("]"))
+	}
 
-		done <- true
-	}()
+	w.Write([]byte("]"))
 
-	return done
+	return nil, http.StatusOK
 }
 
-func LocationSearchHandler(w http.ResponseWriter, req *http.Request) error {
-
-	key := [2]int{}
-	v := req.URL.Query()
-
-	postcodes := getQueryParamsAsInt(v, "postcode")
-	numbers := getQueryParamsAsInt(v, "number")
-	query, err := getSingleQueryValueOrEmpty(v, "name")
-
-	if err != nil {
-		return fmt.Errorf("Error: %v", err)
-	}
-
-	// If there are no numbers, use the default values
-	if len(numbers) == 0 {
-		numbers = DefaultNumbers
-	}
-
-	if len(postcodes) == 0 {
-		postcodes = DefaultPostCodes
-	}
-
-	cs := make(chan []byte)
-	done := byteChanToJSON(w, cs, false)
-	for _, pc := range postcodes {
-		key[0] = pc
-		for _, n := range numbers {
-			key[1] = n
-			for _, l := range LookupTable[key] {
-				if !l.NameMatches(query) {
-					continue
-				}
-				cs <- l.JSONCache
-			}
-		}
-	}
-	close(cs)
-	<-done
-	return nil
-
-}
-
-func LocationDetailHandler(w http.ResponseWriter, req *http.Request) error {
+func (l *LocationService) detail(w http.ResponseWriter, req *http.Request) (error, int) {
 
 	vars := mux.Vars(req)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		return fmt.Errorf("Invalid id parameter")
+		return ErrInvalidId, http.StatusBadRequest
 	}
-	w.Write(IndexTable[id].JSONCache)
-	return nil
+
+	enc := json.NewEncoder(w)
+	enc.Encode(l.indexTable[id])
+
+	return nil, http.StatusOK
+
 }
 
-func AutoCompleteStreetNamesHandler(w http.ResponseWriter, req *http.Request) error {
+func (l *LocationService) GetRouter() *mux.Router {
 
-	v := req.URL.Query()
-	q, present := v["q"]
-	if !present {
-		return fmt.Errorf("Query parameter missing")
-	}
+	router := mux.NewRouter()
+	s := router.PathPrefix(l.prefix).Subrouter()
+	s.HandleFunc("/", l.wrapHttpHandler(l.search)).Methods("GET")
+	s.HandleFunc("/{id:[0-9]+}/", l.wrapHttpHandler(l.detail)).Methods("GET")
+	return router
 
-	matcher := q[0]
-
-	cs := make(chan []byte)
-	done := byteChanToJSON(w, cs, true)
-	for _, s := range StreetNames {
-		if strings.Contains(s, matcher) {
-			cs <- []byte(s)
-		}
-	}
-	close(cs)
-	<-done
-	return nil
-}
-
-func SetupRoutes(r *mux.Router) {
-
-	r.HandleFunc("/locations/",
-		timedResponse(errorHandler(LocationSearchHandler)))
-	r.HandleFunc("/locations/{id:[0-9]+}/",
-		timedResponse(errorHandler(LocationDetailHandler)))
-	r.HandleFunc("/ac/streets/",
-		timedResponse(errorHandler(AutoCompleteStreetNamesHandler)))
 }
