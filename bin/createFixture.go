@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"github.com/StefanKjartansson/isnet93"
 	iconv "github.com/djimenez/iconv-go"
 	"io"
@@ -165,6 +166,10 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Println("Import finished")
+
+	for idx, l := range locations {
+		locations[idx].Fasteignaheiti = fmt.Sprintf("%s, %d %s", l.Fasteignaheiti, l.Postnr, l.Sveitarfelag)
+	}
 
 	b, err := json.Marshal(locations)
 	if err != nil {
