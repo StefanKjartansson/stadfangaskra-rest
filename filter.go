@@ -1,6 +1,10 @@
 package stadfangaskra
 
-import "strings"
+import (
+	"encoding/base64"
+	"fmt"
+	"strings"
+)
 
 type Filter struct {
 	Street   []string `schema:"street"`
@@ -45,6 +49,10 @@ func intInSlice(a int, list []int) bool {
 		}
 	}
 	return false
+}
+
+func (f *Filter) Hash() string {
+	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%v%v%v", f.Street, f.Number, f.Postcode)))
 }
 
 func (f *Filter) Match(l *Location) bool {
