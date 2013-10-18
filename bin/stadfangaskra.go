@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"github.com/StefanKjartansson/stadfangaskra"
 	log "github.com/llimllib/loglevel"
 	"net/http"
@@ -39,7 +38,6 @@ func main() {
 	}
 
 	for idx, l := range locs {
-		locs[idx].Name = fmt.Sprintf("%s, %d %s", l.Name, l.Postcode, l.Municipality)
 		b, err := json.Marshal(l)
 		if err != nil {
 			panic(err)
