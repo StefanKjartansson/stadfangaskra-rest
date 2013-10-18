@@ -1,8 +1,10 @@
 package stadfangaskra
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/golang/groupcache/lru"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 	log "github.com/llimllib/loglevel"
@@ -20,6 +22,7 @@ var (
 type HandleFuncErrorStatus func(http.ResponseWriter, *http.Request) (error, int)
 
 type LocationService struct {
+	cache          *lru.Cache
 	prefix         string
 	streetNames    []string
 	postCodes      []int
@@ -41,6 +44,7 @@ func parseFilter(req *http.Request) (*Filter, error) {
 func NewLocationService(prefix string, locs []Location) *LocationService {
 
 	l := LocationService{
+		cache:      lru.New(100),
 		prefix:     strings.TrimRight(prefix, "/"),
 		indexTable: make(map[int]*Location),
 		locations:  locs,
@@ -108,20 +112,29 @@ func (l *LocationService) search(w http.ResponseWriter, req *http.Request) (erro
 		return err, http.StatusBadRequest
 	}
 
-	hasWritten := false
-	w.Write([]byte("["))
+	key := f.Hash()
+	cached, ok := l.cache.Get(key)
 
-	for _, l := range l.locations {
-		if f.Match(&l) {
-			if hasWritten {
-				w.Write([]byte(","))
+	if !ok {
+		hasWritten := false
+		var b bytes.Buffer
+		b.Write([]byte("["))
+
+		for _, l := range l.locations {
+			if f.Match(&l) {
+				if hasWritten {
+					b.Write([]byte(","))
+				}
+				b.Write(l.JSONCache)
+				hasWritten = true
 			}
-			w.Write(l.JSONCache)
-			hasWritten = true
 		}
+		b.Write([]byte("]"))
+		cached = b.Bytes()
+		l.cache.Add(key, cached)
 	}
 
-	w.Write([]byte("]"))
+	w.Write(cached.([]byte))
 
 	return nil, http.StatusOK
 }
