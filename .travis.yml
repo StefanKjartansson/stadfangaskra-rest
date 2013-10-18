@@ -1,10 +1,14 @@
 language: go
-go: 1.1
+
+go:
+ - 1.1
+ - tip
 
 install:
  - go get github.com/StefanKjartansson/isnet93
- - go get github.com/djimenez/iconv-go
- - go get code.google.com/p/gorilla/mux
+ - go get github.com/gorilla/mux
+ - go get github.com/gorilla/schema
+ - go get github.com/llimllib/loglevel
 
 script:
  - go test -v
