@@ -9,6 +9,7 @@ install:
  - go get github.com/gorilla/mux
  - go get github.com/gorilla/schema
  - go get github.com/llimllib/loglevel
+ - go get github.com/golang/groupcache
 
 script:
  - go test -v
