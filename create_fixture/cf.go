@@ -198,6 +198,7 @@ func init() {
 		panic(err)
 	}
 	for idx, l := range Locations {
+		Locations[idx].Name = fmt.Sprintf("%s, %d %s", l.Name, l.Postcode, l.Municipality)
 		b, err := json.Marshal(l)
 		if err != nil {
 			panic(err)
