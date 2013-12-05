@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/StefanKjartansson/stadfangaskra"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"sync"
 	"testing"
 )
@@ -17,30 +17,7 @@ var once sync.Once
 var client *http.Client
 
 func startServer() {
-
-	file, err := os.Open("./fixture.json")
-	if err != nil {
-		panic(err)
-	}
-
-	locs := []Location{}
-	decoder := json.NewDecoder(file)
-
-	err = decoder.Decode(&locs)
-	if err != nil {
-		panic(err)
-	}
-
-	for idx, l := range locs {
-		locs[idx].Name = fmt.Sprintf("%s, %d %s", l.Name, l.Postcode, l.Municipality)
-		b, err := json.Marshal(l)
-		if err != nil {
-			panic(err)
-		}
-		locs[idx].JSONCache = b
-	}
-
-	ls := NewLocationService("/locations/", locs)
+	ls := NewLocationService("/locations/", stadfangaskra.Locations)
 	http.Handle("/", ls.GetRouter())
 	server := httptest.NewServer(nil)
 	serverAddr = server.Listener.Addr().String()
@@ -99,18 +76,35 @@ func getJSON(t *testing.T, url string, v interface{}) *http.Response {
 	return makeRequest(t, "GET", url, v)
 }
 
+func TestFilterURL(t *testing.T) {
+
+	t.Log("Testing filter")
+
+	once.Do(startServer)
+
+	url := "/?street=Laugavegur&number=2"
+	results := []stadfangaskra.Location{}
+	getJSON(t, url, &results)
+
+	url = "/?street=Laugavegur&number=22"
+	results = []stadfangaskra.Location{}
+	getJSON(t, url, &results)
+
+}
+
 func TestSearch(t *testing.T) {
 
 	t.Log("Testing search")
 
 	once.Do(startServer)
 
-	url := "/?street=Laugavegur&number=2"
-	results := []Location{}
+	url := "/search?q=Vatnsstígur%203b,%20101%20Reykjavík"
+
+	results := []stadfangaskra.Location{}
 	getJSON(t, url, &results)
 
-	url = "/?street=Laugavegur&number=22"
-	results = []Location{}
-	getJSON(t, url, &results)
+	if results[0].Street != "Vatnsstígur" {
+		t.FailNow()
+	}
 
 }

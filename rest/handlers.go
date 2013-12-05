@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/StefanKjartansson/stadfangaskra"
 	"github.com/golang/groupcache/lru"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
@@ -26,27 +27,27 @@ type LocationService struct {
 	prefix         string
 	streetNames    []string
 	postCodes      []int
-	locations      []Location
-	indexTable     map[int]*Location
+	locations      []stadfangaskra.Location
+	indexTable     map[int]*stadfangaskra.Location
 	defaultHeaders map[string]string
 }
 
-func parseFilter(req *http.Request) (*Filter, error) {
+func parseFilter(req *http.Request) (*stadfangaskra.Filter, error) {
 
 	req.ParseForm()
 	decoder := schema.NewDecoder()
-	f := new(Filter)
+	f := new(stadfangaskra.Filter)
 	err := decoder.Decode(f, req.Form)
 	return f, err
 
 }
 
-func NewLocationService(prefix string, locs []Location) *LocationService {
+func NewLocationService(prefix string, locs []stadfangaskra.Location) *LocationService {
 
 	l := LocationService{
 		cache:      lru.New(100),
 		prefix:     strings.TrimRight(prefix, "/"),
-		indexTable: make(map[int]*Location),
+		indexTable: make(map[int]*stadfangaskra.Location),
 		locations:  locs,
 		defaultHeaders: map[string]string{
 			"Content-Type":                 "application/json; charset=utf-8",
@@ -91,21 +92,23 @@ func (l *LocationService) wrapHttpHandler(f HandleFuncErrorStatus) http.HandlerF
 		for key, value := range l.defaultHeaders {
 			w.Header().Set(key, value)
 		}
-		start := time.Now()
+		//start := time.Now()
 		err, status := f(w, r)
 		if err != nil {
 			log.Errorln(err.Error())
 			http.Error(w, err.Error(), status)
 		} else {
-			log.Infof("%s %s %s, time: %f.ms", r.RemoteAddr,
-				r.Method, r.URL.Query(),
-				time.Now().Sub(start).Seconds()*1000)
+			/*
+				log.Infof("%s %s %s, time: %f.ms", r.RemoteAddr,
+					r.Method, r.URL.Query(),
+					time.Now().Sub(start).Seconds()*1000)
+			*/
 		}
 
 	}
 }
 
-func (l *LocationService) search(w http.ResponseWriter, req *http.Request) (error, int) {
+func (l *LocationService) listing(w http.ResponseWriter, req *http.Request) (error, int) {
 
 	f, err := parseFilter(req)
 	if err != nil {
@@ -154,11 +157,20 @@ func (l *LocationService) detail(w http.ResponseWriter, req *http.Request) (erro
 
 }
 
+func (l *LocationService) search(w http.ResponseWriter, req *http.Request) (error, int) {
+
+	//enc := json.NewEncoder(w)
+	//enc.Encode(l.indexTable[id])
+
+	return nil, http.StatusOK
+
+}
+
 func (l *LocationService) GetRouter() *mux.Router {
 
 	router := mux.NewRouter()
 	s := router.PathPrefix(l.prefix).Subrouter()
-	s.HandleFunc("/", l.wrapHttpHandler(l.search)).Methods("GET")
+	s.HandleFunc("/", l.wrapHttpHandler(l.listing)).Methods("GET")
 	s.HandleFunc("/{id:[0-9]+}/", l.wrapHttpHandler(l.detail)).Methods("GET")
 	return router
 
