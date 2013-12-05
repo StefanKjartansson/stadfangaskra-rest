@@ -1,5 +1,10 @@
 package stadfangaskra
 
+type Point struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
 type Location struct {
 	ID           int    `json:"id"`
 	Name         string `json:"name"`
@@ -9,9 +14,6 @@ type Location struct {
 	Street       string `json:"street,omitempty"`
 	Postcode     int    `json:"postcode"`
 	Municipality string `json:"municipality,omitempty"`
-	Coordinates  struct {
-		X float64 `json:"x"`
-		Y float64 `json:"y"`
-	} `json:"coordinates"`
-	JSONCache []byte `json:"-"`
+	Coordinates  Point  `json:"coordinates"`
+	JSONCache    []byte `json:"-"`
 }
