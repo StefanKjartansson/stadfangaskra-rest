@@ -92,6 +92,7 @@ func TestFilterURL(t *testing.T) {
 
 }
 
+/*
 func TestSearch(t *testing.T) {
 
 	t.Log("Testing search")
@@ -108,3 +109,4 @@ func TestSearch(t *testing.T) {
 	}
 
 }
+*/

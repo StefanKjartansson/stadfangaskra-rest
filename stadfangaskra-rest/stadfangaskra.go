@@ -11,10 +11,7 @@ import (
 
 func main() {
 
-	var httpListen, logLevel string
-
-	flag.StringVar(&httpListen, "http", "127.0.0.1:3999", "host:port to listen on")
-	flag.StringVar(&logLevel, "level", "info", "log level")
+	httpListen := "127.0.0.1:3999"
 
 	flag.Parse()
 
@@ -22,7 +19,7 @@ func main() {
 		log.Fatalf("Missing file argument")
 	}
 
-	log.SetPriorityString(logLevel)
+	log.SetPriorityString("info")
 
 	file, err := os.Open(flag.Arg(0))
 	if err != nil {
