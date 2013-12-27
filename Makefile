@@ -4,11 +4,10 @@ data_path = ./create_fixture/data
 all: fixture test build
 
 test: .PHONY
-	go test -v 
+	go test ./... -v
 
 fixture:
-	go run ${fixture_gen} ${data_path}/Stadfangaskra_20130326.dsv ${data_path}/postnumer.txt > fixture.go
-	go fmt fixture.go
+	go run ${fixture_gen} ${data_path}/Stadfangaskra_20130326.dsv ${data_path}/postnumer.txt > fixture.json
 
 build:
 	go build rest/server.go
