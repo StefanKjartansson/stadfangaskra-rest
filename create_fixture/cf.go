@@ -177,37 +177,5 @@ func main() {
 	}
 	log.Println("JSON serialized")
 
-	content := fmt.Sprintf(`package stadfangaskra
-
-import (
-    "encoding/json"
-    "bytes"
-)
-
-var (
-    Locations = []Location{}
-    fixture = %q
-)
-
-func init() {
-    b := bytes.NewBufferString(fixture)
-	decoder := json.NewDecoder(b)
-
-    err := decoder.Decode(&Locations)
-	if err != nil {
-		panic(err)
-	}
-	for idx, l := range Locations {
-		Locations[idx].Name = fmt.Sprintf("%s, %d %s", l.Name, l.Postcode, l.Municipality)
-		b, err := json.Marshal(l)
-		if err != nil {
-			panic(err)
-		}
-		Locations[idx].JSONCache = b
-	}
-}
-
-    `, string(b))
-
-	os.Stdout.Write([]byte(content))
+	os.Stdout.Write(b)
 }
