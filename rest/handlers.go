@@ -1,4 +1,4 @@
-package stadfangaskra
+package rest
 
 import (
 	"bytes"

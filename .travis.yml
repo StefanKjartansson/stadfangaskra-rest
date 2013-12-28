@@ -6,12 +6,11 @@ go:
  - tip
 
 install:
- - go get github.com/StefanKjartansson/isnet93
+ - go get github.com/StefanKjartansson/stadfangaskra
  - go get github.com/gorilla/mux
  - go get github.com/gorilla/schema
  - go get github.com/llimllib/loglevel
  - go get github.com/golang/groupcache
- - go get github.com/djimenez/iconv-go
 
 script:
- - make
+ - make STADFANGASKRA_DB=$GOPATH/src/github.com/StefanKjartansson/stadfangaskra/db.json

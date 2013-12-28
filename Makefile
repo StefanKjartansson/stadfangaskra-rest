@@ -1,13 +1,6 @@
-fixture_gen = ./create_fixture/cf.go
-data_path = ./create_fixture/data
-
-all: fixture test
+all: test
 
 test: .PHONY
-	go test -v
-	cd rest; STADFANGASKRA_DB=../db.json go test -v
-
-fixture:
-	go run ${fixture_gen} ${data_path}/Stadfangaskra_20130326.dsv ${data_path}/postnumer.txt > db.json
+	go test -v ./...
 
 .PHONY:
