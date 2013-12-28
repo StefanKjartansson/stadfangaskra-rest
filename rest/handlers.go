@@ -10,10 +10,8 @@ import (
 	"github.com/gorilla/schema"
 	log "github.com/llimllib/loglevel"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
-	"time"
 )
 
 var (
@@ -24,11 +22,8 @@ type HandleFuncErrorStatus func(http.ResponseWriter, *http.Request) (error, int)
 
 type LocationService struct {
 	cache          *lru.Cache
+	Store          *stadfangaskra.Store
 	prefix         string
-	streetNames    []string
-	postCodes      []int
-	locations      []stadfangaskra.Location
-	indexTable     map[int]*stadfangaskra.Location
 	defaultHeaders map[string]string
 }
 
@@ -42,45 +37,18 @@ func parseFilter(req *http.Request) (*stadfangaskra.Filter, error) {
 
 }
 
-func NewLocationService(prefix string, locs []stadfangaskra.Location) *LocationService {
+func NewLocationService(prefix string) *LocationService {
 
-	l := LocationService{
-		cache:      lru.New(100),
-		prefix:     strings.TrimRight(prefix, "/"),
-		indexTable: make(map[int]*stadfangaskra.Location),
-		locations:  locs,
+	return &LocationService{
+		cache:  lru.New(100),
+		prefix: strings.TrimRight(prefix, "/"),
+		Store:  stadfangaskra.DefaultStore,
 		defaultHeaders: map[string]string{
 			"Content-Type":                 "application/json; charset=utf-8",
 			"Access-Control-Allow-Origin":  "*",
 			"Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept",
 		},
 	}
-
-	start := time.Now()
-
-	pc := make(map[int]struct{})
-	sn := make(map[string]struct{})
-
-	for idx, i := range l.locations {
-		l.indexTable[i.ID] = &l.locations[idx]
-		pc[i.Postcode] = struct{}{}
-		sn[i.Street] = struct{}{}
-	}
-
-	for p, _ := range pc {
-		l.postCodes = append(l.postCodes, p)
-	}
-
-	for k, _ := range sn {
-		l.streetNames = append(l.streetNames, k)
-	}
-
-	sort.Ints(l.postCodes)
-	sort.Strings(l.streetNames)
-
-	log.Infof("Initialize took: %f.ms", time.Now().Sub(start).Seconds()*1000)
-
-	return &l
 
 }
 
@@ -92,17 +60,10 @@ func (l *LocationService) wrapHttpHandler(f HandleFuncErrorStatus) http.HandlerF
 		for key, value := range l.defaultHeaders {
 			w.Header().Set(key, value)
 		}
-		//start := time.Now()
 		err, status := f(w, r)
 		if err != nil {
 			log.Errorln(err.Error())
 			http.Error(w, err.Error(), status)
-		} else {
-			/*
-				log.Infof("%s %s %s, time: %f.ms", r.RemoteAddr,
-					r.Method, r.URL.Query(),
-					time.Now().Sub(start).Seconds()*1000)
-			*/
 		}
 
 	}
@@ -123,7 +84,7 @@ func (l *LocationService) listing(w http.ResponseWriter, req *http.Request) (err
 		var b bytes.Buffer
 		b.Write([]byte("["))
 
-		for _, l := range l.locations {
+		for _, l := range l.Store.Locations {
 			if f.Match(&l) {
 				if hasWritten {
 					b.Write([]byte(","))
@@ -151,7 +112,7 @@ func (l *LocationService) detail(w http.ResponseWriter, req *http.Request) (erro
 	}
 
 	enc := json.NewEncoder(w)
-	enc.Encode(l.indexTable[id])
+	enc.Encode(l.Store.GetById(id))
 
 	return nil, http.StatusOK
 
@@ -159,8 +120,20 @@ func (l *LocationService) detail(w http.ResponseWriter, req *http.Request) (erro
 
 func (l *LocationService) search(w http.ResponseWriter, req *http.Request) (error, int) {
 
-	//enc := json.NewEncoder(w)
-	//enc.Encode(l.indexTable[id])
+	val, ok := req.URL.Query()["q"]
+	if !ok || len(val) > 1 {
+		return nil, http.StatusBadRequest
+	}
+
+	enc := json.NewEncoder(w)
+
+	loc, err := l.Store.FindByString(val[0])
+
+	if err != nil {
+		return err, http.StatusBadRequest
+	}
+
+	enc.Encode(loc)
 
 	return nil, http.StatusOK
 
@@ -171,6 +144,7 @@ func (l *LocationService) GetRouter() *mux.Router {
 	router := mux.NewRouter()
 	s := router.PathPrefix(l.prefix).Subrouter()
 	s.HandleFunc("/", l.wrapHttpHandler(l.listing)).Methods("GET")
+	s.HandleFunc("/search", l.wrapHttpHandler(l.search)).Methods("GET")
 	s.HandleFunc("/{id:[0-9]+}/", l.wrapHttpHandler(l.detail)).Methods("GET")
 	return router
 

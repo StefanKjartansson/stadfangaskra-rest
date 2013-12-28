@@ -2,6 +2,7 @@ package stadfangaskra
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -10,11 +11,12 @@ import (
 )
 
 var (
-	reNumber       = regexp.MustCompile(`\d+-?\.?`)
-	rePostcode     = regexp.MustCompile(`\d{3}\s+`)
-	reRemainder    = regexp.MustCompile(`^[a-zA-Z]{1}$`)
-	reStrictNumber = regexp.MustCompile(`^\d+$`)
-	excemptionList = []string{
+	ErrInvalidIndex = errors.New("Missing Search Index")
+	reNumber        = regexp.MustCompile(`\d+-?\.?`)
+	rePostcode      = regexp.MustCompile(`\d{3}\s+`)
+	reRemainder     = regexp.MustCompile(`^[a-zA-Z]{1}$`)
+	reStrictNumber  = regexp.MustCompile(`^\d+$`)
+	excemptionList  = []string{
 		"Domus",
 		"Medica",
 	}
@@ -43,7 +45,8 @@ type Store struct {
 func NewStore(file io.ReadCloser) (*Store, error) {
 
 	s := Store{
-		IdIndex: make(map[int]*Location),
+		IdIndex:     make(map[int]*Location),
+		SearchIndex: make(map[AddressCompound][]*Location),
 	}
 
 	decoder := json.NewDecoder(file)
@@ -60,42 +63,62 @@ func NewStore(file io.ReadCloser) (*Store, error) {
 			return nil, err
 		}
 		s.Locations[idx].JSONCache = b
-		//if empty, new array
+
+		tmp := l.GetSearchIndex()
+
+		val, ok := s.SearchIndex[tmp]
+
+		if !ok {
+			val = []*Location{}
+		}
+
+		val = append(val, &s.Locations[idx])
+		s.SearchIndex[tmp] = val
 	}
 
 	return &s, nil
 }
 
-func (s *Store) FindAll(query Location) []*Location {
+func (s *Store) FindByString(query string) (*Location, error) {
 
-	locs := []*Location{}
+	q, err := ParseLocation(query)
+	if err != nil {
+		return nil, err
+	}
 
-	for idx, l := range s.Locations {
+	return s.FindByQuery(q)
+}
 
-		if l.Postcode != query.Postcode {
-			continue
-		}
+// FindByQuery
+func (s *Store) FindByQuery(query Location) (*Location, error) {
 
-		if l.Municipality != query.Municipality {
-			continue
-		}
+	// Check
+	si := query.GetSearchIndex()
+	possibles, ok := s.SearchIndex[si]
+	if !ok {
+		return nil, ErrInvalidIndex
+	}
 
-		if l.Street != query.Street {
-			continue
-		}
-
+	for _, l := range possibles {
 		if l.Number != query.Number {
 			continue
 		}
-
 		if l.NumberChars != query.NumberChars {
 			continue
 		}
-
-		locs = append(locs, &s.Locations[idx])
-
+		return l, nil
 	}
-	return locs
+
+	return nil, nil
+
+}
+
+func (s *Store) GetById(ID int) *Location {
+	val, ok := s.IdIndex[ID]
+	if !ok {
+		return nil
+	}
+	return val
 }
 
 func ParseLocation(s string) (query Location, err error) {

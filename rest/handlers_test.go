@@ -17,7 +17,7 @@ var once sync.Once
 var client *http.Client
 
 func startServer() {
-	ls := NewLocationService("/locations/", stadfangaskra.Locations)
+	ls := NewLocationService("/locations/")
 	http.Handle("/", ls.GetRouter())
 	server := httptest.NewServer(nil)
 	serverAddr = server.Listener.Addr().String()
@@ -92,7 +92,6 @@ func TestFilterURL(t *testing.T) {
 
 }
 
-/*
 func TestSearch(t *testing.T) {
 
 	t.Log("Testing search")
@@ -101,12 +100,11 @@ func TestSearch(t *testing.T) {
 
 	url := "/search?q=Vatnsstígur%203b,%20101%20Reykjavík"
 
-	results := []stadfangaskra.Location{}
+	results := stadfangaskra.Location{}
 	getJSON(t, url, &results)
 
-	if results[0].Street != "Vatnsstígur" {
-		t.FailNow()
+	if results.Street != "Vatnsstígur" {
+		t.Errorf("%+v", results)
 	}
 
 }
-*/
