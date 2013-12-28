@@ -11,6 +11,7 @@ install:
  - go get github.com/gorilla/schema
  - go get github.com/llimllib/loglevel
  - go get github.com/golang/groupcache
+ - go get github.com/djimenez/iconv-go
 
 script:
  - make
